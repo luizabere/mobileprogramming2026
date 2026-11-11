@@ -2,6 +2,7 @@ package com.learntospell.myapplication;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
@@ -34,16 +35,18 @@ public class MainActivity extends AppCompatActivity {
 
     private HashMap<String, String> kamusEasy, kamusMedium, kamusDifficult, kamus;
     private ArrayList<String> kataEasy, kataMedium, kataDifficult, kata;
-    int JUMLAH_OPSI=5, JUMLAH_SOAL=10, soalKe=0;
+    int JUMLAH_OPSI=5;
+    int JUMLAH_SOAL=10;
     private RecyclerView rvOpsi;
     private OpsiAdapter adapter;
     private TextView textHasil;
     private String soal;
-    private ArrayList<String> opsiJawaban;
+    private ArrayList<String> opsiJawaban, listSalah;
     private static final String TAG_LC = "Lifecycle";
     private TextView textSkor;
     private int skorBenar = 0;
     private int skorSalah = 0;
+    private int soalKe = 0;
 
     private static final String TAG_TIMER = "Timer";
     private static final long DURASI_SOAL = 15000;
@@ -76,9 +79,12 @@ public class MainActivity extends AppCompatActivity {
         rvOpsi = findViewById(R.id.opsi);
         rvOpsi.setLayoutManager(new LinearLayoutManager(this));
 
-        adapter = new OpsiAdapter((OpsiAdapter.OnOpsiClickListener) position -> {
-            periksaJawaban(position);
-            Log.d("VocabQuiz", "Opsi diklik: posisi " + position);
+        adapter = new OpsiAdapter(new OpsiAdapter.OnOpsiClickListener() {
+            @Override
+            public void onOpsiClick(int position) {
+                periksaJawaban(position);
+                Log.d("VocabQuiz", "Opsi diklik: posisi " + position);
+            }
         });
         rvOpsi.setAdapter(adapter);
         Button tombolBerikutnya = findViewById(R.id.tombolBerikutnya);
@@ -91,6 +97,7 @@ public class MainActivity extends AppCompatActivity {
 
         kamus = new HashMap<>();
         kata = new ArrayList<>();
+        listSalah = new ArrayList<>();
 
         kamusEasy = new HashMap<>();
         kataEasy = new ArrayList<>();
@@ -136,31 +143,34 @@ public class MainActivity extends AppCompatActivity {
         letsPlay();
     }
 
-    private String kodeLevel(){
+
+    private String kodeLevel() {
         int id = radioGroupLevel.getCheckedRadioButtonId();
-        if (id == R.id.radioEasy)return "Easy";
-        if (id == R.id.radioMedium)return "Medium";
-        return "Hard";
+        if(id==R.id.radioEasy) return "Easy";
+        if(id==R.id.radioMedium) return "Medium";
+        return "difficult";
     }
 
-    private void mulaiSesiBaru(){
+    private void mulaiSesiBaru() {
         soalKe = 0;
         skorBenar = 0;
         skorSalah = 0;
         letsPlay();
     }
 
-    private void tampilkanRingkasan(){
+    private void tampilkanRingkasan() {
         int nilai = skorBenar * 100 / JUMLAH_SOAL;
         new AlertDialog.Builder(this)
-                .setTitle("Sesi Selesai")
-                .setMessage("Level: "+ kodeLevel()+ "nilai: " + nilai)
+                .setTitle("Sesi Sudah Selesai")
+                .setMessage("Level:" + kodeLevel())
                 .setPositiveButton("Mau main lagi?", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
                         mulaiSesiBaru();
                     }
                 }).show();
+
+
     }
 
     private void pilihLevel(int checkedId) {
@@ -179,10 +189,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void letsPlay() {
 
-        if (soalKe >= JUMLAH_SOAL) {
+        if(soalKe >= JUMLAH_SOAL) {
             selesaiSesi();
             return;
         }
+
         soalKe++;
         opsiJawaban = new ArrayList<>();
         soal = null;
@@ -191,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
 
         ArrayList<String> acak = new ArrayList<>(kata);
         Collections.shuffle(acak);
-        soal= acak.get(0);
+        soal = acak.get(0);
 
         for (int i = 0; i < JUMLAH_OPSI; i++) {
             opsiJawaban.add(kamus.get(acak.get(i)));
@@ -206,13 +217,23 @@ public class MainActivity extends AppCompatActivity {
 
         sisaMs = DURASI_SOAL;
         mulaiTimer(sisaMs);
+
     }
 
-    private void selesaiSesi(){
+    private void selesaiSesi() {
         hentikanTimer();
         sudahDijawab = true;
-        tampilkanRingkasan();
+        Intent intent = new Intent(this, RingkasanHasil.class);
+        intent.putExtra("JUMLAH_BENAR", skorBenar);
+        intent.putExtra("JUMLAH_SALAH", skorSalah);
+        intent.putExtra("LEVEL", kodeLevel());
+        intent.putStringArrayListExtra("DAFTAR SALAH", listSalah);
+        startActivity(intent);
+
+        mulaiSesiBaru();
+        //tampilkanRingkasan();
     }
+
 
     private void periksaJawaban(int position) {
         hentikanTimer();
@@ -225,6 +246,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             skorSalah++;
             textHasil.setText("Salah. Jawaban benar: " + benar);
+            listSalah.add(soal + ": " + benar );
         }
         updateSkor();
     }
@@ -242,7 +264,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateSkor() {
-        textSkor.setText("soal no: " + (soalKe+1) +"Benar: " + skorBenar + "  Salah: " + skorSalah);
+        textSkor.setText("Soal no: " + (soalKe+1) + "Benar: " + skorBenar + "  Salah: " + skorSalah);
     }
 
     private void mulaiTimer(long durasi) {
